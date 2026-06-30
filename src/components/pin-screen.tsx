@@ -120,10 +120,6 @@ export function PinScreen() {
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "متابعة"}
             </Button>
-            <div className="text-xs text-center text-muted-foreground space-y-1">
-              <div>حسابات تجريبية:</div>
-              <div dir="ltr" className="font-mono">admin / 1234 — sales / 2345 — accountant / 3456</div>
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
