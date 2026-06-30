@@ -1,0 +1,149 @@
+// Prisma schema for Real Estate Lots Management System
+// نظام إدارة البقع العقارية
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== المستخدمون =====================
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(SALES)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visits    Visit[]
+  sales     Sale[]
+  payments  Payment[]
+}
+
+enum UserRole {
+  ADMIN
+  SALES
+  ACCOUNTANT
+}
+
+// ===================== الزوار =====================
+model Visitor {
+  id          String   @id @default(cuid())
+  visitorCode String   @unique // VIS-000001
+  name        String
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  visits    Visit[]
+  customer  Customer?
+}
+
+// ===================== سجل الزيارات =====================
+model Visit {
+  id         String   @id @default(cuid())
+  visitorId  String
+  visitDate  DateTime @default(now())
+  request    String?
+  notes      String?
+  createdById String?
+  createdAt  DateTime @default(now())
+
+  visitor   Visitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id])
+}
+
+// ===================== الزبناء =====================
+model Customer {
+  id           String   @id @default(cuid())
+  customerCode String   @unique // CUS-000001
+  visitorId    String   @unique
+  nationalId   String?
+  name         String
+  phone        String?
+  phone2       String?
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  visitor Visitor @relation(fields: [visitorId], references: [id])
+  sales   Sale[]
+}
+
+// ===================== البقع العقارية =====================
+model Lot {
+  id                  String     @id @default(cuid())
+  lotNumber           String     @unique // رقم البقعة
+  titleDeed           String?    // رقم الرسم العقاري
+  villaType           VillaType  @default(CONNECTED)
+  lotArea             Float      // مساحة البقعة
+  gardenArea          Float      @default(0) // مساحة الحديقة
+  groundFloorArea     Float      @default(0) // مساحة الطابق الأرضي
+  totalBuiltArea      Float      @default(0) // إجمالي مساحة البناء
+  status              LotStatus  @default(EMPTY)
+  priceEmpty          Float      @default(0)
+  priceSemiFinished   Float      @default(0)
+  priceReady          Float      @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  sales Sale[]
+}
+
+enum VillaType {
+  CONNECTED
+  SEMI_DETACHED
+}
+
+enum LotStatus {
+  EMPTY
+  SEMI_FINISHED
+  READY
+}
+
+// ===================== المبيعات =====================
+model Sale {
+  id         String    @id @default(cuid())
+  saleDate   DateTime  @default(now())
+  customerId String
+  lotId      String
+  salePrice  Float
+  contractPdf String?  // base64 أو رابط
+  notes      String?
+  createdById String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  lot        Lot      @relation(fields: [lotId], references: [id])
+  createdBy  User?    @relation(fields: [createdById], references: [id])
+  payments   Payment[]
+}
+
+// ===================== الدفعات =====================
+model Payment {
+  id            String        @id @default(cuid())
+  saleId        String
+  paymentDate   DateTime      @default(now())
+  amount        Float
+  paymentMethod PaymentMethod @default(CASH)
+  notes         String?
+  createdById   String?
+  createdAt     DateTime      @default(now())
+
+  sale        Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  createdBy   User? @relation(fields: [createdById], references: [id])
+}
+
+enum PaymentMethod {
+  CASH
+  CHECK
+  TRANSFER
+  CARD
+}
