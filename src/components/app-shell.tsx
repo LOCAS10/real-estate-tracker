@@ -154,8 +154,18 @@ export function AppShell({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
-          {children}
+        <main className="flex-1 overflow-auto">
+          {/* شعار المشروع في الأعلى */}
+          <div className="sticky top-0 z-20 bg-card/80 backdrop-blur border-b">
+            <div className="px-4 py-2 text-center">
+              <span className="text-sm font-semibold tracking-wide bg-gradient-to-l from-primary/10 via-primary/15 to-primary/10 px-4 py-1 rounded-full text-primary">
+                Velaya City Bouskoura
+              </span>
+            </div>
+          </div>
+          <div className="p-4 lg:p-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>
