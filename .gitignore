@@ -25,6 +25,7 @@ server.log
 # Database
 db/*.db
 db/*.db-journal
+db/demo-data.json
 
 # OS
 .DS_Store
