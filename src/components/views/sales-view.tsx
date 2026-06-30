@@ -739,7 +739,7 @@ export function SalesView() {
                         </Button>
                       </div>
                       {paymentImage.dataUrl.startsWith("data:image") && (
-                        <img src={paymentImage.dataUrl} alt={paymentImage.name} className="max-h-32 rounded border mx-auto" />
+                        <img src={paymentImage.dataUrl} alt={paymentImage.name} className="max-h-24 w-auto rounded border mx-auto object-contain" />
                       )}
                     </div>
                   ) : (

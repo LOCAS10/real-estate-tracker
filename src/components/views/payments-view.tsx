@@ -350,7 +350,7 @@ export function PaymentsView() {
                         <img
                           src={imageFile.dataUrl}
                           alt={imageFile.name}
-                          className="max-h-40 rounded-lg border mx-auto"
+                          className="max-h-28 w-auto rounded-lg border mx-auto object-contain"
                         />
                       )}
                     </div>
