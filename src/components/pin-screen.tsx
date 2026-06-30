@@ -88,7 +88,7 @@ export function PinScreen() {
           <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
             <Building2 className="w-10 h-10 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">نظام إدارة البقع العقارية</h1>
+          <h1 className="text-2xl font-bold">نظام تتبع المشروع</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {step === "username" ? "أدخل اسم المستخدم للمتابعة" : `مرحباً ${userPreview?.name}`}
           </p>
