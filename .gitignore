@@ -40,3 +40,11 @@ Thumbs.db
 .cache/
 .turbo/
 .eslintcache
+
+# Sandbox-specific files (not needed for production)
+.zscripts/
+skills/
+examples/
+mini-services/
+dev.log
+server.log
