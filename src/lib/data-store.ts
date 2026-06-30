@@ -86,6 +86,7 @@ export interface SaleT {
   lotNumber?: string;
   salePrice: number;
   contractPdf?: string;
+  contractName?: string;
   notes?: string;
   createdById?: string;
   createdByName?: string;
@@ -386,6 +387,7 @@ export const Sales = {
       lotNumber: lot?.lotNumber || '',
       salePrice: Number(data.salePrice) || 0,
       contractPdf: data.contractPdf || '',
+      contractName: data.contractName || '',
       notes: data.notes || '',
       createdById: data.createdById || '',
       createdByName: data.createdByName || '',

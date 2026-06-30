@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Loader2, Search,
-  ChevronDown, ChevronLeft, Wallet
+  ChevronDown, ChevronLeft, Wallet, FileText, Upload, Download, FileCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -39,7 +39,10 @@ export function SalesView() {
   const [form, setForm] = useState({
     customerId: "", lotId: "", salePrice: "", saleDate: new Date().toISOString().slice(0, 10), notes: "",
   });
+  const [contractFile, setContractFile] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [editContractFile, setEditContractFile] = useState<{ name: string; dataUrl: string } | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     amount: "", paymentDate: new Date().toISOString().slice(0, 10),
     paymentMethod: "CASH", notes: "",
@@ -158,13 +161,73 @@ export function SalesView() {
     setForm({ ...form, lotId, salePrice: lot ? String(lot.currentPrice) : form.salePrice });
   }
 
+  // رفع ملف العقد PDF وتحويله إلى Data URL
+  async function handleContractUpload(file: File, target: "create" | "edit") {
+    if (file.type !== "application/pdf") {
+      toast.error("يجب أن يكون الملف بصيغة PDF");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("حجم الملف كبير جداً (الحد الأقصى 10 ميجابايت)");
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("فشل قراءة الملف"));
+        reader.readAsDataURL(file);
+      });
+      const payload = { name: file.name, dataUrl };
+      if (target === "create") setContractFile(payload);
+      else setEditContractFile(payload);
+      toast.success(`تم تحميل الملف: ${file.name}`);
+    } catch (e: any) {
+      toast.error(e.message || "خطأ في الرفع");
+    }
+    setUploading(false);
+  }
+
+  // تحميل العقد من Data URL
+  function downloadContract(sale: any) {
+    if (!sale.contractPdf) {
+      toast.error("لا يوجد عقد مرفق");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = sale.contractPdf;
+    link.download = `عقد-بيع-${sale.lotNumber}-${sale.customerName}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // فتح العقد في تبويب جديد للمعاينة
+  function previewContract(sale: any) {
+    if (!sale.contractPdf) {
+      toast.error("لا يوجد عقد مرفق");
+      return;
+    }
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        `<iframe src="${sale.contractPdf}" style="width:100%;height:100vh;border:0;"></iframe>`
+      );
+      win.document.title = `عقد ${sale.customerName} - ${sale.lotNumber}`;
+    }
+  }
+
   function openEdit(s: any) {
     setEditId(s.id);
     setEditForm({
       salePrice: s.salePrice,
       saleDate: (s.saleDate || "").slice(0, 10),
       notes: s.notes || "",
+      contractPdf: s.contractPdf || "",
+      contractName: s.contractName || "",
     });
+    setEditContractFile(null);
     setEditOpen(true);
   }
 
@@ -250,6 +313,16 @@ export function SalesView() {
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1 justify-end">
+                            {s.contractPdf && (
+                              <>
+                                <Button variant="ghost" size="icon" onClick={() => previewContract(s)} title="معاينة العقد">
+                                  <FileText className="w-4 h-4 text-blue-600" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => downloadContract(s)} title="تحميل العقد">
+                                  <Download className="w-4 h-4 text-emerald-600" />
+                                </Button>
+                              </>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => setPaymentModal({ saleId: s.id })} title="إضافة دفعة">
                               <Wallet className="w-4 h-4" />
                             </Button>
@@ -273,8 +346,19 @@ export function SalesView() {
                         <TableRow key={s.id + "-details"} className="bg-muted/20">
                           <TableCell colSpan={8} className="p-4">
                             <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-semibold text-sm">الدفعات ({sm.count})</h4>
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-3">
+                                  <h4 className="font-semibold text-sm">الدفعات ({sm.count})</h4>
+                                  {s.contractPdf ? (
+                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 gap-1 cursor-pointer" onClick={() => previewContract(s)}>
+                                      <FileCheck className="w-3 h-3" /> عقد مرفق — اضغط للمعاينة
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-amber-100 text-amber-700 gap-1">
+                                      <FileText className="w-3 h-3" /> لا يوجد عقد
+                                    </Badge>
+                                  )}
+                                </div>
                                 <Button size="sm" variant="outline" onClick={() => setPaymentModal({ saleId: s.id })}>
                                   <Plus className="w-3 h-3 ml-1" /> دفعة
                                 </Button>
@@ -382,11 +466,59 @@ export function SalesView() {
                 rows={2}
               />
             </div>
+
+            {/* رفع عقد البيع PDF */}
+            <div className="space-y-2">
+              <Label>عقد البيع الموقع (PDF) — اختياري</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4 transition-colors hover:border-primary/50">
+                {contractFile ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{contractFile.name}</div>
+                        <div className="text-xs text-muted-foreground">جاهز للرفع</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        size="sm" variant="ghost"
+                        onClick={() => setContractFile(null)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center cursor-pointer py-4">
+                    <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                    <span className="text-sm font-medium">اضغط لاختيار ملف PDF</span>
+                    <span className="text-xs text-muted-foreground mt-1">الحد الأقصى 10 ميجابايت</span>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleContractUpload(f, "create");
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                {uploading && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+                    <Loader2 className="w-3 h-3 animate-spin" /> جارٍ التحضير...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); setContractFile(null); }}>إلغاء</Button>
             <Button
-              onClick={() => createMutation.mutate(form)}
+              onClick={() => createMutation.mutate({ ...form, contractPdf: contractFile?.dataUrl || "", contractName: contractFile?.name || "" })}
               disabled={!form.customerId || !form.lotId || !form.salePrice || createMutation.isPending}
             >
               {createMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
@@ -415,10 +547,90 @@ export function SalesView() {
               <Label>ملاحظات</Label>
               <Textarea value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2} />
             </div>
+
+            {/* العقد الحالي / استبداله */}
+            <div className="space-y-2">
+              <Label>عقد البيع الموقع (PDF)</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4 transition-colors hover:border-primary/50">
+                {/* العقد المرفوع حديثاً (لم يُحفظ بعد) */}
+                {editContractFile ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{editContractFile.name}</div>
+                        <div className="text-xs text-emerald-600">جديد — سيحل محل القديم</div>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setEditContractFile(null)} className="text-destructive">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ) : editForm.contractPdf ? (
+                  /* عقد قديم محفوظ */
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">عقد محفوظ</div>
+                        <div className="text-xs text-muted-foreground">اضغط "معاينة" لعرضه</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button size="sm" variant="ghost" onClick={() => previewContract(editForm)} title="معاينة">
+                        <FileText className="w-3.5 h-3.5 text-blue-600" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => downloadContract(editForm)} title="تحميل">
+                        <Download className="w-3.5 h-3.5 text-emerald-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* لا يوجد عقد */
+                  <label className="flex flex-col items-center justify-center cursor-pointer py-4">
+                    <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                    <span className="text-sm font-medium">اضغط لاختيار ملف PDF</span>
+                    <span className="text-xs text-muted-foreground mt-1">الحد الأقصى 10 ميجابايت</span>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleContractUpload(f, "edit");
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                {uploading && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+                    <Loader2 className="w-3 h-3 animate-spin" /> جارٍ التحضير...
+                  </div>
+                )}
+                {/* زر حذف العقد المحفوظ */}
+                {editForm.contractPdf && !editContractFile && (
+                  <Button
+                    size="sm" variant="ghost"
+                    className="mt-2 w-full text-destructive"
+                    onClick={() => setEditForm({ ...editForm, contractPdf: "", contractName: "" })}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 ml-1" /> حذف العقد الحالي
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>إلغاء</Button>
-            <Button onClick={() => updateMutation.mutate(editForm)} disabled={updateMutation.isPending}>
+            <Button variant="outline" onClick={() => { setEditOpen(false); setEditContractFile(null); }}>إلغاء</Button>
+            <Button
+              onClick={() => updateMutation.mutate({
+                ...editForm,
+                contractPdf: editContractFile?.dataUrl || editForm.contractPdf || "",
+                contractName: editContractFile?.name || editForm.contractName || "",
+              })}
+              disabled={updateMutation.isPending}
+            >
               {updateMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               حفظ
             </Button>
