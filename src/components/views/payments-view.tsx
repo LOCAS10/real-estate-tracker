@@ -17,7 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Wallet, Loader2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet, Loader2, Search, Upload, FileText, Download, Eye, Image as ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS } from "@/lib/format";
 import { useAuth } from "@/lib/auth-context";
@@ -35,6 +35,9 @@ export function PaymentsView() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [imageFile, setImageFile] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const [form, setForm] = useState({
     saleId: "", amount: "",
     paymentDate: new Date().toISOString().slice(0, 10),
@@ -77,6 +80,7 @@ export function PaymentsView() {
     onSuccess: () => {
       toast.success(editId ? "تم التحديث" : "تمت الإضافة");
       setOpen(false); setEditId(null);
+      setImageFile(null);
       setForm({ saleId: "", amount: "", paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "CASH", notes: "" });
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -106,13 +110,65 @@ export function PaymentsView() {
       paymentMethod: p.paymentMethod,
       notes: p.notes || "",
     });
+    setImageFile(null);
     setOpen(true);
   }
 
   function openCreate() {
     setEditId(null);
     setForm({ saleId: "", amount: "", paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "CASH", notes: "" });
+    setImageFile(null);
     setOpen(true);
+  }
+
+  // رفع صورة الدفعة (شيك/وصل/تحويل) وتحويلها إلى Data URL
+  async function handleImageUpload(file: File) {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+    if (!allowed.includes(file.type)) {
+      toast.error("الصيغة غير مدعومة. استخدم: JPG, PNG, WebP, GIF, أو PDF");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)");
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("فشل قراءة الملف"));
+        reader.readAsDataURL(file);
+      });
+      setImageFile({ name: file.name, dataUrl });
+      toast.success(`تم تحميل: ${file.name}`);
+    } catch (e: any) {
+      toast.error(e.message || "خطأ في الرفع");
+    }
+    setUploading(false);
+  }
+
+  // معاينة صورة الدفعة
+  function previewPaymentImage(p: any) {
+    if (!p.paymentImage) {
+      toast.error("لا توجد صورة مرفقة");
+      return;
+    }
+    setPreviewImage({ url: p.paymentImage, name: p.paymentImageName || "صورة الدفعة" });
+  }
+
+  // تحميل صورة الدفعة
+  function downloadPaymentImage(p: any) {
+    if (!p.paymentImage) {
+      toast.error("لا توجد صورة مرفقة");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = p.paymentImage;
+    link.download = p.paymentImageName || `دفعة-${p.amount}-${formatDate(p.paymentDate)}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   return (
@@ -155,6 +211,7 @@ export function PaymentsView() {
                   <TableHead>عملية البيع</TableHead>
                   <TableHead>المبلغ</TableHead>
                   <TableHead>الطريقة</TableHead>
+                  <TableHead>الصورة</TableHead>
                   <TableHead>ملاحظات</TableHead>
                   <TableHead>بواسطة</TableHead>
                   <TableHead className="text-left">إجراءات</TableHead>
@@ -163,13 +220,13 @@ export function PaymentsView() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : payments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       لا توجد دفعات
                     </TableCell>
                   </TableRow>
@@ -182,6 +239,22 @@ export function PaymentsView() {
                       <Badge variant="secondary" className={METHOD_COLORS[p.paymentMethod]}>
                         {PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {p.paymentMethod === "CASH" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : p.paymentImage ? (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => previewPaymentImage(p)} title="معاينة الصورة">
+                            <Eye className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => downloadPaymentImage(p)} title="تحميل الصورة">
+                            <Download className="w-4 h-4 text-emerald-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-amber-600">لم تُرفع</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{p.notes || "—"}</TableCell>
                     <TableCell className="text-xs">{p.createdByName || "—"}</TableCell>
@@ -248,20 +321,147 @@ export function PaymentsView() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* رفع صورة الدفعة - يظهر فقط عند غير النقد */}
+            {form.paymentMethod !== "CASH" && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  صورة {PAYMENT_METHOD_LABELS[form.paymentMethod]} (شيك / وصل / إشعار تحويل) — اختياري
+                </Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-4 transition-colors hover:border-primary/50">
+                  {imageFile ? (
+                    /* صورة جديدة لم تُحفظ بعد */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{imageFile.name}</div>
+                            <div className="text-xs text-emerald-600">جديد — جاهز للحفظ</div>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => setImageFile(null)} className="text-destructive">
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                      {/* معاينة إن كانت صورة */}
+                      {imageFile.dataUrl.startsWith("data:image") && (
+                        <img
+                          src={imageFile.dataUrl}
+                          alt={imageFile.name}
+                          className="max-h-40 rounded-lg border mx-auto"
+                        />
+                      )}
+                    </div>
+                  ) : editId && (paymentsData?.payments || []).find((p: any) => p.id === editId)?.paymentImage ? (
+                    /* صورة محفوظة سابقاً في وضع التعديل */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {(paymentsData?.payments || []).find((p: any) => p.id === editId)?.paymentImageName || "صورة محفوظة"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">سيتم استبدالها عند رفع صورة جديدة</div>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm" variant="ghost"
+                          onClick={() => {
+                            const p = (paymentsData?.payments || []).find((x: any) => x.id === editId);
+                            if (p) setPreviewImage({ url: p.paymentImage, name: p.paymentImageName || "صورة" });
+                          }}
+                        >
+                          <Eye className="w-3.5 h-3.5 text-blue-600" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* لا توجد صورة */
+                    <label className="flex flex-col items-center justify-center cursor-pointer py-4">
+                      <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                      <span className="text-sm font-medium">اضغط لرفع صورة أو PDF</span>
+                      <span className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP, PDF — حتى 5 ميجابايت</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleImageUpload(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {uploading && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> جارٍ التحضير...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>ملاحظات</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); setImageFile(null); }}>إلغاء</Button>
             <Button
-              onClick={() => saveMutation.mutate(form)}
+              onClick={() => {
+                const existingPayment = editId ? (paymentsData?.payments || []).find((p: any) => p.id === editId) : null;
+                saveMutation.mutate({
+                  ...form,
+                  paymentImage: imageFile?.dataUrl || (existingPayment?.paymentImage ?? ""),
+                  paymentImageName: imageFile?.name || (existingPayment?.paymentImageName ?? ""),
+                });
+              }}
               disabled={!form.saleId || !form.amount || saveMutation.isPending}
             >
               {saveMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               حفظ
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: معاينة الصورة */}
+      <Dialog open={!!previewImage} onOpenChange={(o) => !o && setPreviewImage(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-primary" />
+              {previewImage?.name || "صورة الدفعة"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {previewImage?.url.startsWith("data:image") ? (
+              <img
+                src={previewImage.url}
+                alt={previewImage.name}
+                className="max-h-[70vh] mx-auto rounded-lg border"
+              />
+            ) : (
+              <iframe
+                src={previewImage?.url}
+                className="w-full h-[70vh] rounded-lg border"
+                title={previewImage?.name}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <a href={previewImage?.url} download={previewImage?.name}>
+              <Button variant="outline">
+                <Download className="w-4 h-4 ml-2" />
+                تحميل
+              </Button>
+            </a>
+            <Button onClick={() => setPreviewImage(null)}>إغلاق</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

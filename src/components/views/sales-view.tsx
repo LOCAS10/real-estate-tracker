@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/table";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Loader2, Search,
-  ChevronDown, ChevronLeft, Wallet, FileText, Upload, Download, FileCheck
+  ChevronDown, ChevronLeft, Wallet, FileText, Upload, Download, FileCheck,
+  Image as ImageIcon, X, Eye
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS } from "@/lib/format";
 import { useAuth } from "@/lib/auth-context";
 
 export function SalesView() {
@@ -47,6 +48,9 @@ export function SalesView() {
     amount: "", paymentDate: new Date().toISOString().slice(0, 10),
     paymentMethod: "CASH", notes: "",
   });
+  const [paymentImage, setPaymentImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [uploadingPayment, setUploadingPayment] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
 
   const { data: customersData } = useQuery({ queryKey: ["customers"], queryFn: async () => (await fetch("/api/customers")).json() });
   const { data: lotsData } = useQuery({ queryKey: ["lots"], queryFn: async () => (await fetch("/api/lots")).json() });
@@ -140,6 +144,8 @@ export function SalesView() {
           paymentDate: new Date(paymentForm.paymentDate).toISOString(),
           paymentMethod: paymentForm.paymentMethod,
           notes: paymentForm.notes,
+          paymentImage: paymentImage?.dataUrl || "",
+          paymentImageName: paymentImage?.name || "",
           createdById: user?.id, createdByName: user?.name,
         }),
       });
@@ -149,11 +155,39 @@ export function SalesView() {
       toast.success("تمت إضافة الدفعة");
       setPaymentModal(null);
       setPaymentForm({ amount: "", paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "CASH", notes: "" });
+      setPaymentImage(null);
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  // رفع صورة الدفعة
+  async function handlePaymentImageUpload(file: File) {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+    if (!allowed.includes(file.type)) {
+      toast.error("الصيغة غير مدعومة. استخدم: JPG, PNG, WebP, GIF, أو PDF");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حجم الملف كبير جداً (الحد الأقصى 5 ميجابايت)");
+      return;
+    }
+    setUploadingPayment(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("فشل قراءة الملف"));
+        reader.readAsDataURL(file);
+      });
+      setPaymentImage({ name: file.name, dataUrl });
+      toast.success(`تم تحميل: ${file.name}`);
+    } catch (e: any) {
+      toast.error(e.message || "خطأ في الرفع");
+    }
+    setUploadingPayment(false);
+  }
 
   // عند اختيار البقعة، يُملأ السعر تلقائياً
   function onLotSelect(lotId: string) {
@@ -373,6 +407,7 @@ export function SalesView() {
                                         <TableHead>التاريخ</TableHead>
                                         <TableHead>المبلغ</TableHead>
                                         <TableHead>الطريقة</TableHead>
+                                        <TableHead>الصورة</TableHead>
                                         <TableHead>ملاحظات</TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -381,7 +416,19 @@ export function SalesView() {
                                         <TableRow key={p.id}>
                                           <TableCell className="text-xs">{formatDate(p.paymentDate)}</TableCell>
                                           <TableCell className="font-medium nums">{formatCurrency(p.amount)}</TableCell>
-                                          <TableCell className="text-xs">{p.paymentMethod}</TableCell>
+                                          <TableCell className="text-xs">{PAYMENT_METHOD_LABELS[p.paymentMethod] || p.paymentMethod}</TableCell>
+                                          <TableCell>
+                                            {p.paymentMethod === "CASH" ? (
+                                              <span className="text-xs text-muted-foreground">—</span>
+                                            ) : p.paymentImage ? (
+                                              <Button variant="ghost" size="sm" onClick={() => setPreviewImage({ url: p.paymentImage, name: p.paymentImageName || "صورة" })} className="h-7 gap-1">
+                                                <Eye className="w-3 h-3 text-blue-600" />
+                                                <span className="text-xs">عرض</span>
+                                              </Button>
+                                            ) : (
+                                              <span className="text-xs text-amber-600">لم تُرفع</span>
+                                            )}
+                                          </TableCell>
                                           <TableCell className="text-xs">{p.notes || "—"}</TableCell>
                                         </TableRow>
                                       ))}
@@ -671,9 +718,58 @@ export function SalesView() {
               <Label>ملاحظات</Label>
               <Textarea value={paymentForm.notes} onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })} rows={2} />
             </div>
+
+            {/* رفع صورة الدفعة - يظهر فقط عند غير النقد */}
+            {paymentForm.paymentMethod !== "CASH" && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  صورة {PAYMENT_METHOD_LABELS[paymentForm.paymentMethod]} — اختياري
+                </Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-3 transition-colors hover:border-primary/50">
+                  {paymentImage ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">{paymentImage.name}</span>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => setPaymentImage(null)} className="text-destructive">
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      {paymentImage.dataUrl.startsWith("data:image") && (
+                        <img src={paymentImage.dataUrl} alt={paymentImage.name} className="max-h-32 rounded border mx-auto" />
+                      )}
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center cursor-pointer py-3">
+                      <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                      <span className="text-xs font-medium">اضغط لرفع صورة أو PDF</span>
+                      <span className="text-xs text-muted-foreground mt-0.5">حتى 5 ميجابايت</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handlePaymentImageUpload(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {uploadingPayment && (
+                    <div className="mt-1 flex items-center gap-2 text-xs text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> جارٍ التحضير...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentModal(null)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => { setPaymentModal(null); setPaymentImage(null); }}>إلغاء</Button>
             <Button
               onClick={() => paymentModal && addPaymentMutation.mutate(paymentModal.saleId)}
               disabled={!paymentForm.amount || addPaymentMutation.isPending}
@@ -681,6 +777,33 @@ export function SalesView() {
               {addPaymentMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               إضافة الدفعة
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: معاينة صورة الدفعة */}
+      <Dialog open={!!previewImage} onOpenChange={(o) => !o && setPreviewImage(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-primary" />
+              {previewImage?.name || "صورة الدفعة"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {previewImage?.url.startsWith("data:image") ? (
+              <img src={previewImage.url} alt={previewImage.name} className="max-h-[70vh] mx-auto rounded-lg border" />
+            ) : (
+              <iframe src={previewImage?.url} className="w-full h-[70vh] rounded-lg border" title={previewImage?.name} />
+            )}
+          </div>
+          <DialogFooter>
+            <a href={previewImage?.url} download={previewImage?.name}>
+              <Button variant="outline">
+                <Download className="w-4 h-4 ml-2" /> تحميل
+              </Button>
+            </a>
+            <Button onClick={() => setPreviewImage(null)}>إغلاق</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

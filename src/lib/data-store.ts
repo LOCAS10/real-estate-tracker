@@ -101,6 +101,8 @@ export interface PaymentT {
   paymentDate: string;
   amount: number;
   paymentMethod: PaymentMethod;
+  paymentImage?: string;
+  paymentImageName?: string;
   notes?: string;
   createdById?: string;
   createdByName?: string;
@@ -451,6 +453,8 @@ export const Payments = {
       paymentDate: data.paymentDate || new Date().toISOString(),
       amount: Number(data.amount) || 0,
       paymentMethod: data.paymentMethod || 'CASH',
+      paymentImage: data.paymentImage || '',
+      paymentImageName: data.paymentImageName || '',
       notes: data.notes || '',
       createdById: data.createdById || '',
       createdByName: data.createdByName || '',
