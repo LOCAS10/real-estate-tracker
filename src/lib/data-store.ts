@@ -1,12 +1,13 @@
 // lib/data-store.ts
-// طبقة بيانات موحدة تعمل مع Firebase أو وضع Demo (في الذاكرة)
+// طبقة بيانات موحدة تعمل مع Firebase أو وضع Demo (file-based JSON)
 // كل العمليات async حتى تنتقل بسلاسة بين الوضعين
 
 import { db, isFirebaseConfigured } from './firebase';
 import {
-  collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc,
-  deleteDoc, query, where, orderBy, Timestamp, onSnapshot
+  collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ============= الأنواع =============
 export type UserRole = 'ADMIN' | 'SALES' | 'ACCOUNTANT';
@@ -15,7 +16,7 @@ export interface UserT {
   id: string;
   name: string;
   username: string;
-  pin: string; // 4-6 digits
+  pin: string;
   role: UserRole;
   active: boolean;
   createdAt: string;
@@ -106,49 +107,78 @@ export interface PaymentT {
   createdAt: string;
 }
 
-// ============= Demo Store (في الذاكرة) =============
-class MemoryStore {
-  users: UserT[] = [];
-  visitors: VisitorT[] = [];
-  visits: VisitT[] = [];
-  customers: CustomerT[] = [];
-  lots: LotT[] = [];
-  sales: SaleT[] = [];
-  payments: PaymentT[] = [];
+// ============= Demo Store (file-based JSON) =============
+const DEMO_FILE = path.join(process.cwd(), 'db', 'demo-data.json');
 
-  constructor() {
-    // مستخدم افتراضي: admin / PIN 1234
-    this.users.push({
-      id: 'u-admin',
-      name: 'المدير العام',
-      username: 'admin',
-      pin: '1234',
-      role: 'ADMIN',
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
-    this.users.push({
-      id: 'u-sales',
-      name: 'موظف المبيعات',
-      username: 'sales',
-      pin: '2345',
-      role: 'SALES',
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
-    this.users.push({
-      id: 'u-acc',
-      name: 'المحاسب',
-      username: 'accountant',
-      pin: '3456',
-      role: 'ACCOUNTANT',
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
+interface DemoData {
+  users: UserT[];
+  visitors: VisitorT[];
+  visits: VisitT[];
+  customers: CustomerT[];
+  lots: LotT[];
+  sales: SaleT[];
+  payments: PaymentT[];
+}
+
+function defaultData(): DemoData {
+  const now = new Date().toISOString();
+  return {
+    users: [
+      { id: 'u-admin', name: 'المدير العام', username: 'admin', pin: '1234', role: 'ADMIN', active: true, createdAt: now },
+      { id: 'u-sales', name: 'موظف المبيعات', username: 'sales', pin: '2345', role: 'SALES', active: true, createdAt: now },
+      { id: 'u-acc', name: 'المحاسب', username: 'accountant', pin: '3456', role: 'ACCOUNTANT', active: true, createdAt: now },
+    ],
+    visitors: [],
+    visits: [],
+    customers: [],
+    lots: [],
+    sales: [],
+    payments: [],
+  };
+}
+
+let cache: DemoData | null = null;
+let writeTimer: NodeJS.Timeout | null = null;
+
+function loadDemo(): DemoData {
+  // في dev mode، اقرأ من الملف دائماً لأن الـ workers قد يكونون منفصلين
+  try {
+    if (fs.existsSync(DEMO_FILE)) {
+      const raw = fs.readFileSync(DEMO_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      const def = defaultData();
+      for (const k of Object.keys(def) as (keyof DemoData)[]) {
+        if (!data[k]) data[k] = (def as any)[k];
+      }
+      cache = data;
+      return cache;
+    }
+  } catch (e) {
+    console.error('Demo load error:', e);
+  }
+  cache = defaultData();
+  saveDemo(cache, true);
+  return cache;
+}
+
+function saveDemo(data: DemoData, immediate = false): void {
+  cache = data;
+  try {
+    fs.mkdirSync(path.dirname(DEMO_FILE), { recursive: true });
+    fs.writeFileSync(DEMO_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error('Demo save error:', e);
   }
 }
 
-const memStore = new MemoryStore();
+// قراءة-تعديل-كتابة atomic (لتجنب مشاكل الـ workers في dev mode)
+function mutate<T>(name: CollectionName, fn: (arr: any[]) => T): T {
+  const d = loadDemo();
+  const arr = (d as any)[name] as any[];
+  const result = fn(arr);
+  saveDemo(d);
+  return result;
+}
 
 // ============= عدّادات تلقائية =============
 async function nextCode(collection: 'visitors' | 'customers'): Promise<string> {
@@ -171,7 +201,7 @@ async function getAll(name: CollectionName): Promise<any[]> {
     arr.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     return arr;
   }
-  return (memStore as any)[name] as any[];
+  return (loadDemo() as any)[name] as any[];
 }
 
 async function getById(name: CollectionName, id: string): Promise<any | null> {
@@ -179,37 +209,40 @@ async function getById(name: CollectionName, id: string): Promise<any | null> {
     const snap = await getDoc(doc(db!, name, id));
     return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   }
-  const arr = (memStore as any)[name] as any[];
+  const arr = (loadDemo() as any)[name] as any[];
   return arr.find(x => x.id === id) || null;
 }
 
 async function create(name: CollectionName, data: any): Promise<any> {
-  const id = isFirebaseConfigured && db
-    ? (await addDoc(collection(db!, name), data)).id
-    : `local-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  if (!isFirebaseConfigured || !db) {
-    (memStore as any)[name].push({ id, ...data });
+  if (isFirebaseConfigured && db) {
+    const id = (await addDoc(collection(db!, name), data)).id;
+    return { id, ...data };
   }
+  const id = `local-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  mutate(name, arr => arr.push({ id, ...data }));
   return { id, ...data };
 }
 
 async function update(name: CollectionName, id: string, data: any): Promise<void> {
   if (isFirebaseConfigured && db) {
     await updateDoc(doc(db!, name, id), data);
+    return;
   }
-  const arr = (memStore as any)[name] as any[];
-  const idx = arr.findIndex(x => x.id === id);
-  if (idx >= 0) arr[idx] = { ...arr[idx], ...data };
+  mutate(name, arr => {
+    const idx = arr.findIndex(x => x.id === id);
+    if (idx >= 0) arr[idx] = { ...arr[idx], ...data };
+  });
 }
 
 async function remove(name: CollectionName, id: string): Promise<void> {
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db!, name, id));
+    return;
   }
-  const arr = (memStore as any)[name] as any[];
-  const idx = arr.findIndex(x => x.id === id);
-  if (idx >= 0) arr.splice(idx, 1);
+  mutate(name, arr => {
+    const idx = arr.findIndex(x => x.id === id);
+    if (idx >= 0) arr.splice(idx, 1);
+  });
 }
 
 // ============= الواجهات المتخصصة =============
@@ -255,12 +288,10 @@ export const Visitors = {
   },
   async update(id: string, data: Partial<VisitorT>): Promise<void> { return update('visitors', id, data); },
   async delete(id: string): Promise<void> {
-    // حذف الزيارات المرتبطة
     const visits = await Visits.list();
     for (const v of visits) {
       if (v.visitorId === id) await Visits.delete(v.id);
     }
-    // التحقق من وجود زبون مرتبط
     const customers = await Customers.list();
     if (customers.some(c => c.visitorId === id)) {
       throw new Error('لا يمكن حذف الزائر، تم تحويله إلى زبون');
@@ -298,7 +329,6 @@ export const Customers = {
   async createFromVisitor(visitorId: string, extra?: Partial<CustomerT>): Promise<CustomerT> {
     const visitor = await Visitors.get(visitorId);
     if (!visitor) throw new Error('الزائر غير موجود');
-    // التحقق إن لم يكن محولاً مسبقاً
     const existing = (await getAll('customers')).find(c => c.visitorId === visitorId);
     if (existing) throw new Error('هذا الزائر محوّل إلى زبون مسبقاً');
     const customerCode = await nextCode('customers');
@@ -353,13 +383,11 @@ export const Lots = {
     }
     return remove('lots', id);
   },
-  // السعر الحالي حسب الحالة
   currentPrice(lot: LotT): number {
     if (lot.status === 'READY') return lot.priceReady;
     if (lot.status === 'SEMI_FINISHED') return lot.priceSemiFinished;
     return lot.priceEmpty;
   },
-  // حالة التوفّر محسوبة من المبيعات
   async availability(lotId: string): Promise<'AVAILABLE' | 'SOLD'> {
     const sales = await getAll('sales');
     return sales.some((s: any) => s.lotId === lotId) ? 'SOLD' : 'AVAILABLE';
@@ -373,7 +401,6 @@ export const Sales = {
   async create(data: Partial<SaleT>): Promise<SaleT> {
     const customer = data.customerId ? await Customers.get(data.customerId) : null;
     const lot = data.lotId ? await Lots.get(data.lotId) : null;
-    // التحقق من عدم البيع المسبق للبقعة
     const sales = await getAll('sales');
     if (sales.some((s: any) => s.lotId === data.lotId)) {
       throw new Error('هذه البقعة مبيعة مسبقاً');
@@ -396,14 +423,12 @@ export const Sales = {
   },
   async update(id: string, data: Partial<SaleT>): Promise<void> { return update('sales', id, data); },
   async delete(id: string): Promise<void> {
-    // حذف الدفعات المرتبطة
     const payments = await Payments.list();
     for (const p of payments) {
       if (p.saleId === id) await Payments.delete(p.id);
     }
     return remove('sales', id);
   },
-  // ملخص مالي للعملية
   async summary(saleId: string) {
     const sale = await Sales.get(saleId);
     if (!sale) return null;
@@ -441,12 +466,10 @@ export const Search = {
   async search(q: string) {
     const term = q.trim().toLowerCase();
     if (!term) return { visitors: [], visits: [], customers: [], lots: [], sales: [], payments: [] };
-
     const [visitors, visits, customers, lots, sales, payments] = await Promise.all([
       Visitors.list(), Visits.list(), Customers.list(),
       Lots.list(), Sales.list(), Payments.list(),
     ]);
-
     return {
       visitors: visitors.filter(v =>
         v.name.toLowerCase().includes(term) ||
@@ -490,24 +513,18 @@ export const Dashboard = {
       Visitors.list(), Customers.list(), Lots.list(),
       Sales.list(), Payments.list(),
     ]);
-
     const soldLotIds = new Set(sales.map(s => s.lotId));
     const soldCount = lots.filter(l => soldLotIds.has(l.id)).length;
     const availableCount = lots.length - soldCount;
-
     const totalSales = sales.reduce((s, x) => s + x.salePrice, 0);
     const totalCollected = payments.reduce((s, x) => s + x.amount, 0);
     const totalRemaining = totalSales - totalCollected;
-
     return {
       visitorsCount: visitors.length,
       customersCount: customers.length,
       lotsCount: lots.length,
-      soldCount,
-      availableCount,
-      totalSales,
-      totalCollected,
-      totalRemaining,
+      soldCount, availableCount,
+      totalSales, totalCollected, totalRemaining,
     };
   },
 };

@@ -1,0 +1,105 @@
+{
+  "users": [
+    {
+      "id": "u-admin",
+      "name": "المدير العام",
+      "username": "admin",
+      "pin": "1234",
+      "role": "ADMIN",
+      "active": true,
+      "createdAt": "2026-06-30T22:04:29.111Z"
+    },
+    {
+      "id": "u-sales",
+      "name": "موظف المبيعات",
+      "username": "sales",
+      "pin": "2345",
+      "role": "SALES",
+      "active": true,
+      "createdAt": "2026-06-30T22:04:29.111Z"
+    },
+    {
+      "id": "u-acc",
+      "name": "المحاسب",
+      "username": "accountant",
+      "pin": "3456",
+      "role": "ACCOUNTANT",
+      "active": true,
+      "createdAt": "2026-06-30T22:04:29.111Z"
+    }
+  ],
+  "visitors": [
+    {
+      "id": "local-visitors-1782857069112-6jn9l8",
+      "visitorCode": "VIS-000001",
+      "name": "أحمد بناني",
+      "phone": "0611112222",
+      "createdAt": "2026-06-30T22:04:29.112Z"
+    }
+  ],
+  "visits": [],
+  "customers": [
+    {
+      "id": "local-customers-1782857069308-2mubqz",
+      "customerCode": "CUS-000001",
+      "visitorId": "local-visitors-1782857069112-6jn9l8",
+      "nationalId": "AB123456",
+      "name": "أحمد بناني",
+      "phone": "0611112222",
+      "phone2": "",
+      "address": "",
+      "createdAt": "2026-06-30T22:04:29.308Z"
+    }
+  ],
+  "lots": [
+    {
+      "id": "local-lots-1782857069552-r3c9a3",
+      "lotNumber": "L-001",
+      "titleDeed": "",
+      "villaType": "CONNECTED",
+      "lotArea": 250,
+      "gardenArea": 0,
+      "groundFloorArea": 0,
+      "totalBuiltArea": 0,
+      "status": "EMPTY",
+      "priceEmpty": 500000,
+      "priceSemiFinished": 700000,
+      "priceReady": 900000,
+      "createdAt": "2026-06-30T22:04:29.552Z"
+    },
+    {
+      "id": "local-lots-1782857143589-rkps9k",
+      "lotNumber": "L-002",
+      "titleDeed": "",
+      "villaType": "CONNECTED",
+      "lotArea": 300,
+      "gardenArea": 0,
+      "groundFloorArea": 0,
+      "totalBuiltArea": 0,
+      "status": "EMPTY",
+      "priceEmpty": 600000,
+      "priceSemiFinished": 800000,
+      "priceReady": 1000000,
+      "createdAt": "2026-06-30T22:05:43.589Z"
+    }
+  ],
+  "sales": [
+    {
+      "id": "local-sales-1782857069777-xmfmkn",
+      "saleDate": "2026-06-30T22:04:29.777Z",
+      "customerId": "local-customers-1782857069308-2mubqz",
+      "customerName": "أحمد بناني",
+      "customerCode": "CUS-000001",
+      "lotId": "local-lots-1782857069552-r3c9a3",
+      "lotNumber": "L-001",
+      "salePrice": 600000,
+      "contractPdf": "",
+      "contractName": "",
+      "notes": "test",
+      "createdById": "",
+      "createdByName": "",
+      "createdAt": "2026-06-30T22:04:29.777Z"
+    }
+  ],
+  "payments": []
+}
