@@ -6,7 +6,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
 
 export const metadata: Metadata = {
-  title: "نظام البقع العقارية",
+  title: "نظام تتبع المشروع",
   description: "نظام متكامل لإدارة الزوار والزبناء والبقع والمبيعات والدفعات",
 };
 

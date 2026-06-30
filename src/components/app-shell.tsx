@@ -61,7 +61,7 @@ export function AppShell({
           <Building2 className="w-5 h-5 text-primary-foreground" />
         </div>
         <div>
-          <div className="font-bold text-sidebar-foreground text-sm">نظام البقع العقارية</div>
+          <div className="font-bold text-sidebar-foreground text-sm">نظام تتبع المشروع</div>
           <div className="text-xs text-sidebar-foreground/60">إدارة شاملة</div>
         </div>
       </div>
@@ -149,7 +149,7 @@ export function AppShell({
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Building2 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-sm">نظام البقع العقارية</span>
+            <span className="font-bold text-sm">نظام تتبع المشروع</span>
           </div>
         </header>
 
