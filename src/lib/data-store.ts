@@ -1,13 +1,17 @@
 // lib/data-store.ts
-// طبقة بيانات موحدة تعمل مع Firebase أو وضع Demo (file-based JSON)
+// طبقة بيانات موحدة تعمل مع Firebase (Admin SDK) أو وضع Demo (file-based JSON)
 // كل العمليات async حتى تنتقل بسلاسة بين الوضعين
 
 import { db, isFirebaseConfigured } from './firebase';
 import {
   collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
+import { getAdminDb, isAdminConfigured } from './firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// تحديد ما إذا كنا في server-side (API route) لاستخدام Admin SDK
+const useAdmin = typeof window === 'undefined' && isAdminConfigured;
 
 // ============= الأنواع =============
 export type UserRole = 'ADMIN' | 'SALES' | 'ACCOUNTANT';
@@ -197,6 +201,14 @@ async function nextCode(collection: 'visitors' | 'customers'): Promise<string> {
 type CollectionName = 'users' | 'visitors' | 'visits' | 'customers' | 'lots' | 'sales' | 'payments';
 
 async function getAll(name: CollectionName): Promise<any[]> {
+  // أولوية: Admin SDK (server-side) → Client SDK → Demo
+  if (useAdmin) {
+    const adminDb = getAdminDb();
+    const snap = await adminDb.collection(name).get();
+    const arr = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    arr.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    return arr;
+  }
   if (isFirebaseConfigured && db) {
     const snap = await getDocs(collection(db, name));
     const arr = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
@@ -207,6 +219,11 @@ async function getAll(name: CollectionName): Promise<any[]> {
 }
 
 async function getById(name: CollectionName, id: string): Promise<any | null> {
+  if (useAdmin) {
+    const adminDb = getAdminDb();
+    const snap = await adminDb.collection(name).doc(id).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
+  }
   if (isFirebaseConfigured && db) {
     const snap = await getDoc(doc(db!, name, id));
     return snap.exists() ? { id: snap.id, ...snap.data() } : null;
@@ -216,6 +233,11 @@ async function getById(name: CollectionName, id: string): Promise<any | null> {
 }
 
 async function create(name: CollectionName, data: any): Promise<any> {
+  if (useAdmin) {
+    const adminDb = getAdminDb();
+    const ref = await adminDb.collection(name).add(data);
+    return { id: ref.id, ...data };
+  }
   if (isFirebaseConfigured && db) {
     const id = (await addDoc(collection(db!, name), data)).id;
     return { id, ...data };
@@ -226,6 +248,11 @@ async function create(name: CollectionName, data: any): Promise<any> {
 }
 
 async function update(name: CollectionName, id: string, data: any): Promise<void> {
+  if (useAdmin) {
+    const adminDb = getAdminDb();
+    await adminDb.collection(name).doc(id).update(data);
+    return;
+  }
   if (isFirebaseConfigured && db) {
     await updateDoc(doc(db!, name, id), data);
     return;
@@ -237,6 +264,11 @@ async function update(name: CollectionName, id: string, data: any): Promise<void
 }
 
 async function remove(name: CollectionName, id: string): Promise<void> {
+  if (useAdmin) {
+    const adminDb = getAdminDb();
+    await adminDb.collection(name).doc(id).delete();
+    return;
+  }
   if (isFirebaseConfigured && db) {
     await deleteDoc(doc(db!, name, id));
     return;
