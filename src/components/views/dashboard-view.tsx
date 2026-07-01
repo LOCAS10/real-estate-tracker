@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Users, UserCheck, MapPinned, ShoppingCart, Wallet,
-  TrendingUp, AlertCircle, CheckCircle2
+  TrendingUp, AlertCircle, CheckCircle2, AlertTriangle
 } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { TabId } from "@/components/app-shell";
@@ -18,6 +18,7 @@ interface Stats {
   lotsCount: number;
   soldCount: number;
   availableCount: number;
+  reservedCount: number;
   totalSales: number;
   totalCollected: number;
   totalRemaining: number;
@@ -43,6 +44,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (t: TabId) => void }
     { label: "إجمالي البقع", value: stats?.lotsCount, icon: MapPinned, color: "text-amber-600 bg-amber-50", tab: "lots" as TabId },
     { label: "البقع المباعة", value: stats?.soldCount, icon: ShoppingCart, color: "text-rose-600 bg-rose-50", tab: "sales" as TabId },
     { label: "البقع المتوفرة", value: stats?.availableCount, icon: CheckCircle2, color: "text-teal-600 bg-teal-50", tab: "lots" as TabId },
+    { label: "البقع المحجوزة", value: stats?.reservedCount, icon: AlertTriangle, color: "text-amber-600 bg-amber-50", tab: "lots" as TabId },
     { label: "المبالغ المحصلة", value: formatCurrency(stats?.totalCollected || 0), icon: Wallet, color: "text-green-600 bg-green-50", tab: "payments" as TabId },
   ];
 
