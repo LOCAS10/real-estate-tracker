@@ -40,7 +40,6 @@ export function NotificationBell() {
       const res = await fetch(`/api/notifications?userId=${user?.id}&userRole=${user?.role}`);
       return res.json();
     },
-    refetchInterval: 120000,
     enabled: !!user?.id,
   });
 
