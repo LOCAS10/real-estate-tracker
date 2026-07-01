@@ -15,6 +15,7 @@ import { SearchView } from "@/components/views/search-view";
 import { ReportsView } from "@/components/views/reports-view";
 import { UsersView } from "@/components/views/users-view";
 import { BackupView } from "@/components/views/backup-view";
+import { NotificationsView } from "@/components/views/notifications-view";
 import { Loader2 } from "lucide-react";
 
 export default function Home() {
@@ -46,6 +47,7 @@ export default function Home() {
       {tab === "reports" && <ReportsView />}
       {tab === "users" && <UsersView />}
       {tab === "backup" && <BackupView />}
+      {tab === "notifications" && <NotificationsView />}
     </AppShell>
   );
 }
