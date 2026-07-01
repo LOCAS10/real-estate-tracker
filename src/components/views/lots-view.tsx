@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, MapPinned, Loader2, Search, Lock, Unlock } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPinned, Loader2, Search, Lock, Unlock, LayoutGrid, List, Info } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate, VILLA_TYPE_LABELS, LOT_STATUS_LABELS, AVAILABILITY_LABELS } from "@/lib/format";
 import type { LotT } from "@/lib/data-store";
@@ -45,6 +45,7 @@ export function LotsView() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterAvail, setFilterAvail] = useState<string>("ALL");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
   const emptyForm = {
     lotNumber: "", titleDeed: "", villaType: "CONNECTED" as LotT["villaType"],
@@ -136,9 +137,31 @@ export function LotsView() {
             السعر المعروض يُحسب تلقائياً حسب الحالة، والتوفّر محسوب من المبيعات
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="w-4 h-4 ml-2" /> بقعة جديدة
-        </Button>
+        <div className="flex gap-2">
+          <div className="flex border rounded-lg overflow-hidden">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="icon"
+              className="h-9 w-9 rounded-none"
+              onClick={() => setViewMode("table")}
+              title="عرض جدول"
+            >
+              <List className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="icon"
+              className="h-9 w-9 rounded-none"
+              onClick={() => setViewMode("grid")}
+              title="عرض شبكة"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          </div>
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4 ml-2" /> بقعة جديدة
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -175,6 +198,7 @@ export function LotsView() {
         </CardContent>
       </Card>
 
+      {viewMode === "table" && (
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto max-h-[65vh] overflow-y-auto">
@@ -269,6 +293,69 @@ export function LotsView() {
           </div>
         </CardContent>
       </Card>
+
+
+      {/* الشبكة البصرية للبقع */}
+      {viewMode === "grid" && (
+        <>
+          {/* دليل الألوان */}
+          <div className="flex items-center gap-4 flex-wrap text-sm">
+            <span className="font-medium text-muted-foreground">دليل الألوان:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded bg-emerald-500" />
+              <span>متوفرة ({lots.filter(l => l.availability === "AVAILABLE").length})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded bg-amber-500" />
+              <span>محجوزة ({lots.filter(l => l.availability === "RESERVED").length})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded bg-rose-500" />
+              <span>مباعة ({lots.filter(l => l.availability === "SOLD").length})</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {lots.map((l: any) => {
+              const colorClass = l.availability === "SOLD"
+                ? "border-rose-400 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800"
+                : l.availability === "RESERVED"
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800"
+                  : "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800";
+              const dotColor = l.availability === "SOLD"
+                ? "bg-rose-500" : l.availability === "RESERVED"
+                  ? "bg-amber-500" : "bg-emerald-500";
+              return (
+                <Card
+                  key={l.id}
+                  className={`border-2 cursor-pointer hover:shadow-lg transition-all ${colorClass}`}
+                  onClick={() => openEdit(l)}
+                >
+                  <CardContent className="p-3 text-center space-y-2">
+                    <div className={`w-3 h-3 rounded-full mx-auto ${dotColor}`} />
+                    <div className="font-bold text-lg font-mono">{l.lotNumber}</div>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {VILLA_TYPE_LABELS[l.villaType] || l.villaType}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">{l.lotArea} م²</div>
+                    {l.availability === "RESERVED" && l.reservedCustomerName && (
+                      <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium truncate">
+                        {l.reservedCustomerName}
+                      </div>
+                    )}
+                    {l.availability === "SOLD" && (
+                      <div className="text-[10px] text-rose-600 dark:text-rose-400 font-medium">مباعة</div>
+                    )}
+                    <div className="font-semibold text-sm text-primary nums">
+                      {formatCurrency(l.currentPrice)}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
