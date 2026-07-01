@@ -16,10 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, MapPinned, Loader2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPinned, Loader2, Search, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency, formatDate, VILLA_TYPE_LABELS, LOT_STATUS_LABELS } from "@/lib/format";
+import { formatCurrency, formatDate, VILLA_TYPE_LABELS, LOT_STATUS_LABELS, AVAILABILITY_LABELS } from "@/lib/format";
 import type { LotT } from "@/lib/data-store";
+import { useAuth } from "@/lib/auth-context";
 
 const STATUS_COLORS: Record<string, string> = {
   EMPTY: "bg-slate-100 text-slate-700",
@@ -28,13 +29,18 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const AVAIL_COLORS: Record<string, string> = {
-  AVAILABLE: "bg-emerald-100 text-emerald-700",
-  SOLD: "bg-rose-100 text-rose-700",
+  AVAILABLE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+  RESERVED: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+  SOLD: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
 };
 
 export function LotsView() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [reserveOpen, setReserveOpen] = useState(false);
+  const [reserveId, setReserveId] = useState<string | null>(null);
+  const [reserveForm, setReserveForm] = useState({ customerName: "", notes: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -161,6 +167,7 @@ export function LotsView() {
               <SelectContent>
                 <SelectItem value="ALL">الكل</SelectItem>
                 <SelectItem value="AVAILABLE">متوفرة</SelectItem>
+                <SelectItem value="RESERVED">محجوزة</SelectItem>
                 <SelectItem value="SOLD">مباعة</SelectItem>
               </SelectContent>
             </Select>
@@ -210,8 +217,11 @@ export function LotsView() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={AVAIL_COLORS[l.availability]}>
-                        {l.availability === "SOLD" ? "مباعة" : "متوفرة"}
+                        {AVAILABILITY_LABELS[l.availability] || l.availability}
                       </Badge>
+                      {l.availability === "RESERVED" && l.reservedCustomerName && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{l.reservedCustomerName}</div>
+                      )}
                     </TableCell>
                     <TableCell className="font-semibold nums text-primary">
                       {formatCurrency(l.currentPrice)}
@@ -221,6 +231,26 @@ export function LotsView() {
                         <Button variant="ghost" size="icon" onClick={() => openEdit(l)}>
                           <Pencil className="w-4 h-4" />
                         </Button>
+                        {l.availability === "AVAILABLE" && (
+                          <Button variant="ghost" size="icon" title="حجز" className="text-amber-600" onClick={() => {
+                            setReserveId(l.id); setReserveForm({ customerName: "", notes: "" }); setReserveOpen(true);
+                          }}>
+                            <Lock className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {l.availability === "RESERVED" && (
+                          <Button variant="ghost" size="icon" title="إلغاء الحجز" className="text-amber-600" onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/lots/${l.id}/reserve`, { method: "DELETE" });
+                              if (!res.ok) throw new Error();
+                              toast.success("تم إلغاء الحجز");
+                              qc.invalidateQueries({ queryKey: ["lots"] });
+                              qc.invalidateQueries({ queryKey: ["dashboard"] });
+                            } catch { toast.error("خطأ"); }
+                          }}>
+                            <Unlock className="w-4 h-4" />
+                          </Button>
+                        )}
                         {l.availability !== "SOLD" && (
                           <Button
                             variant="ghost" size="icon"
@@ -328,6 +358,41 @@ export function LotsView() {
               {saveMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               حفظ
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reserveOpen} onOpenChange={setReserveOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>حجز بقعة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>اسم الزبون *</Label>
+              <Input value={reserveForm.customerName} onChange={(e) => setReserveForm({ ...reserveForm, customerName: e.target.value })} placeholder="اسم الزبون المحجوز له" />
+            </div>
+            <div className="space-y-2">
+              <Label>ملاحظات</Label>
+              <Input value={reserveForm.notes} onChange={(e) => setReserveForm({ ...reserveForm, notes: e.target.value })} placeholder="ملاحظات اختيارية" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReserveOpen(false)}>إلغاء</Button>
+            <Button disabled={!reserveForm.customerName} onClick={async () => {
+              try {
+                const res = await fetch(`/api/lots/${reserveId}/reserve`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...reserveForm, reservedBy: user?.id, reservedByName: user?.name }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error);
+                toast.success("تم حجز البقعة");
+                setReserveOpen(false);
+                qc.invalidateQueries({ queryKey: ["lots"] });
+                qc.invalidateQueries({ queryKey: ["dashboard"] });
+              } catch (e: any) { toast.error(e.message || "خطأ"); }
+            }}>حجز</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
