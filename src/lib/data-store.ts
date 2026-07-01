@@ -81,6 +81,24 @@ export interface LotT {
 
 export type PaymentMethod = 'CASH' | 'CHECK' | 'TRANSFER' | 'CARD';
 
+export type NotificationType = 'NOTE' | 'TASK';
+
+export interface NotificationT {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  fromUserId: string;
+  fromUserName: string;
+  toUserId?: string;
+  targetRole?: string;
+  lotId?: string;
+  lotNumber?: string;
+  read: boolean;
+  completed: boolean;
+  createdAt: string;
+}
+
 export interface SaleT {
   id: string;
   saleDate: string;
@@ -124,6 +142,7 @@ interface DemoData {
   lots: LotT[];
   sales: SaleT[];
   payments: PaymentT[];
+  notifications: NotificationT[];
 }
 
 function defaultData(): DemoData {
@@ -140,6 +159,7 @@ function defaultData(): DemoData {
     lots: [],
     sales: [],
     payments: [],
+    notifications: [],
   };
 }
 
@@ -198,7 +218,7 @@ async function nextCode(collection: 'visitors' | 'customers'): Promise<string> {
 }
 
 // ============= API الموحد =============
-type CollectionName = 'users' | 'visitors' | 'visits' | 'customers' | 'lots' | 'sales' | 'payments';
+type CollectionName = 'users' | 'visitors' | 'visits' | 'customers' | 'lots' | 'sales' | 'payments' | 'notifications';
 
 async function getAll(name: CollectionName): Promise<any[]> {
   // أولوية: Admin SDK (server-side) → Client SDK → Demo
@@ -422,9 +442,33 @@ export const Lots = {
     if (lot.status === 'SEMI_FINISHED') return lot.priceSemiFinished;
     return lot.priceEmpty;
   },
-  async availability(lotId: string): Promise<'AVAILABLE' | 'SOLD'> {
+  async availability(lotId: string): Promise<'AVAILABLE' | 'RESERVED' | 'SOLD'> {
     const sales = await getAll('sales');
-    return sales.some((s: any) => s.lotId === lotId) ? 'SOLD' : 'AVAILABLE';
+    if (sales.some((s: any) => s.lotId === lotId)) return 'SOLD';
+    const lots = await getAll('lots');
+    const lot = lots.find((l: any) => l.id === lotId);
+    if (lot?.reserved) return 'RESERVED';
+    return 'AVAILABLE';
+  },
+  async reserve(id: string, data: { customerName: string; notes?: string; reservedBy: string; reservedByName: string }): Promise<void> {
+    return update('lots', id, {
+      reserved: true,
+      reservedCustomerName: data.customerName,
+      reservedNotes: data.notes || '',
+      reservedBy: data.reservedBy,
+      reservedByName: data.reservedByName,
+      reservedAt: new Date().toISOString(),
+    } as any);
+  },
+  async unreserve(id: string): Promise<void> {
+    return update('lots', id, {
+      reserved: false,
+      reservedCustomerName: '',
+      reservedNotes: '',
+      reservedBy: '',
+      reservedByName: '',
+      reservedAt: '',
+    } as any);
   },
 };
 
@@ -568,14 +612,53 @@ export const Dashboard = {
 // --- النسخ الاحتياطي ---
 export const Backup = {
   async exportAll() {
-    const [users, visitors, visits, customers, lots, sales, payments] = await Promise.all([
+    const [users, visitors, visits, customers, lots, sales, payments, notifications] = await Promise.all([
       Users.list(), Visitors.list(), Visits.list(), Customers.list(),
-      Lots.list(), Sales.list(), Payments.list(),
+      Lots.list(), Sales.list(), Payments.list(), Notifications.list(),
     ]);
     return {
       exportedAt: new Date().toISOString(),
       version: 1,
-      data: { users, visitors, visits, customers, lots, sales, payments },
+      data: { users, visitors, visits, customers, lots, sales, payments, notifications },
     };
   },
+};
+
+// --- المراسلات الداخلية ---
+export const Notifications = {
+  async list(): Promise<NotificationT[]> {
+    const all = await getAll('notifications');
+    return all.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  },
+  async forUser(userId: string, userRole: string): Promise<NotificationT[]> {
+    const all = await getAll('notifications');
+    return all
+      .filter((n: any) =>
+        !n.toUserId || n.toUserId === userId || !n.targetRole || n.targetRole === userRole
+      )
+      .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  },
+  async unreadCount(userId: string, userRole: string): Promise<number> {
+    const msgs = await this.forUser(userId, userRole);
+    return msgs.filter((n: any) => !n.read).length;
+  },
+  async create(data: Partial<NotificationT>): Promise<NotificationT> {
+    return create('notifications', {
+      type: data.type || 'NOTE',
+      title: data.title || '',
+      message: data.message || '',
+      fromUserId: data.fromUserId || '',
+      fromUserName: data.fromUserName || '',
+      toUserId: data.toUserId || '',
+      targetRole: data.targetRole || '',
+      lotId: data.lotId || '',
+      lotNumber: data.lotNumber || '',
+      read: false,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    });
+  },
+  async markRead(id: string): Promise<void> { return update('notifications', id, { read: true } as any); },
+  async markCompleted(id: string): Promise<void> { return update('notifications', id, { completed: true, read: true } as any); },
+  async delete(id: string): Promise<void> { return remove('notifications', id); },
 };
