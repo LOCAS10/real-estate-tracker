@@ -595,7 +595,8 @@ export const Dashboard = {
     ]);
     const soldLotIds = new Set(sales.map(s => s.lotId));
     const soldCount = lots.filter(l => soldLotIds.has(l.id)).length;
-    const availableCount = lots.length - soldCount;
+    const reservedCount = lots.filter(l => !soldLotIds.has(l.id) && (l as any).reserved).length;
+    const availableCount = lots.length - soldCount - reservedCount;
     const totalSales = sales.reduce((s, x) => s + x.salePrice, 0);
     const totalCollected = payments.reduce((s, x) => s + x.amount, 0);
     const totalRemaining = totalSales - totalCollected;
@@ -603,7 +604,7 @@ export const Dashboard = {
       visitorsCount: visitors.length,
       customersCount: customers.length,
       lotsCount: lots.length,
-      soldCount, availableCount,
+      soldCount, availableCount, reservedCount,
       totalSales, totalCollected, totalRemaining,
     };
   },
