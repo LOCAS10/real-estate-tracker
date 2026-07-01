@@ -6,16 +6,28 @@ import { rtdb } from './firebase';
 import type { UserT } from './data-store';
 
 export function trackPresence(user: UserT) {
-  if (!rtdb || !user?.id) return;
+  try {
+    if (!rtdb || !user?.id) return;
 
-  const userRef = ref(rtdb, `online/${user.id}`);
+    const userRef = ref(rtdb, `online/${user.id}`);
 
-  set(userRef, {
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    lastSeen: serverTimestamp(),
-  });
+    const data: Record<string, string | object> = {
+      name: user.name,
+      username: user.username,
+      role: user.role,
+      lastSeen: serverTimestamp(),
+    };
 
-  onDisconnect(userRef).remove();
+    // حذف أي قيمة undefined قبل الإرسال
+    Object.keys(data).forEach(key => {
+      if (data[key] === undefined || data[key] === null) {
+        delete data[key];
+      }
+    });
+
+    set(userRef, data);
+    onDisconnect(userRef).remove();
+  } catch {
+    // تجاهل الأخطاء صامتاً
+  }
 }
