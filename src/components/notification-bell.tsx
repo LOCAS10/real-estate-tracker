@@ -106,7 +106,7 @@ export function NotificationBell() {
           <div className="flex items-center justify-between p-3 border-b">
             <span className="font-semibold text-sm">الإشعارات</span>
             <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSendOpen(true)} title="إرسال إشعار">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setOpen(false); setSendOpen(true); }} title="إرسال إشعار">
                 <Plus className="w-3.5 h-3.5" />
               </Button>
             </div>
