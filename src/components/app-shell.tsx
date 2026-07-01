@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Building2, LayoutDashboard, Users, UserCheck, MapPinned,
   ShoppingCart, Wallet, Search, FileBarChart, Settings,
@@ -22,7 +23,7 @@ interface NavItem {
   id: TabId;
   label: string;
   icon: any;
-  roles?: string[]; // الأدوار المسموح لها
+  roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -60,10 +61,11 @@ export function AppShell({
         <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
           <Building2 className="w-5 h-5 text-primary-foreground" />
         </div>
-        <div>
+        <div className="flex-1">
           <div className="font-bold text-sidebar-foreground text-sm">نظام تتبع المشروع</div>
           <div className="text-xs text-sidebar-foreground/60">إدارة شاملة</div>
         </div>
+        <ThemeToggle />
       </div>
 
       {/* القائمة */}
@@ -145,12 +147,13 @@ export function AppShell({
               </Button>
             </SheetTrigger>
           </Sheet>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Building2 className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-sm">نظام تتبع المشروع</span>
           </div>
+          <ThemeToggle />
         </header>
 
         {/* Page Content */}
