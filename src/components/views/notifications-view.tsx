@@ -37,7 +37,7 @@ export function NotificationsView() {
     type: "NOTE" as "NOTE" | "TASK",
     title: "",
     message: "",
-    targetRole: "",
+    targetRole: "ALL",
     toUserId: "",
     lotId: "",
     lotNumber: "",
@@ -72,6 +72,7 @@ export function NotificationsView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          targetRole: form.targetRole === "ALL" ? "" : form.targetRole,
           fromUserId: user?.id,
           fromUserName: user?.name,
         }),
@@ -81,7 +82,7 @@ export function NotificationsView() {
     onSuccess: () => {
       toast.success("تم إرسال الإشعار بنجاح");
       setSendOpen(false);
-      setForm({ type: "NOTE", title: "", message: "", targetRole: "", toUserId: "", lotId: "", lotNumber: "" });
+      setForm({ type: "NOTE", title: "", message: "", targetRole: "ALL", toUserId: "", lotId: "", lotNumber: "" });
       qc.invalidateQueries({ queryKey: ["notifications"] });
     },
     onError: (e: any) => toast.error(e.message || "خطأ في الإرسال"),
@@ -337,7 +338,7 @@ export function NotificationsView() {
                 <Select value={form.targetRole} onValueChange={(v) => setForm({ ...form, targetRole: v })}>
                   <SelectTrigger><SelectValue placeholder="الجميع" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">الجميع</SelectItem>
+                    <SelectItem value="ALL">الجميع</SelectItem>
                     <SelectItem value="ADMIN">المدير</SelectItem>
                     <SelectItem value="SALES">موظف المبيعات</SelectItem>
                     <SelectItem value="ACCOUNTANT">المحاسب</SelectItem>
