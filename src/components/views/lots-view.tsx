@@ -293,7 +293,7 @@ export function LotsView() {
           </div>
         </CardContent>
       </Card>
-
+      )}
 
       {/* الشبكة البصرية للبقع */}
       {viewMode === "grid" && (
