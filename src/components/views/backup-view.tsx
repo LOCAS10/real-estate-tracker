@@ -62,7 +62,7 @@ export function BackupView() {
           <CardTitle className="text-base">تصدير البيانات</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 text-blue-800 text-sm">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 text-blue-800 text-sm dark:bg-blue-950/30 dark:text-blue-300">
             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium mb-1">ماذا يشمل النسخ الاحتياطي؟</p>
@@ -94,7 +94,7 @@ export function BackupView() {
           <CardTitle className="text-base">استعادة البيانات</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm dark:bg-amber-950/30 dark:text-amber-300">
             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div className="text-xs">
               <p className="font-medium mb-1">تنبيه</p>
@@ -116,28 +116,6 @@ export function BackupView() {
               استعادة من ملف
             </Button>
           </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">معلومات النظام</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm space-y-2 text-muted-foreground">
-            <div className="flex justify-between">
-              <span>الإصدار:</span>
-              <span className="font-mono">1.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span>قاعدة البيانات:</span>
-              <span>Firebase Firestore</span>
-            </div>
-            <div className="flex justify-between">
-              <span>النشر:</span>
-              <span>Vercel + GitHub</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
