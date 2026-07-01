@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { UserT } from './data-store';
+import { trackPresence } from './presence';
 
 interface SessionState {
   user: UserT | null;
@@ -31,12 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     Promise.resolve().then(() => {
       setUser(parsed && parsed.id ? parsed : null);
       setLoading(false);
+      if (parsed && parsed.id) trackPresence(parsed);
     });
   }, []);
 
   const login = (u: UserT) => {
     setUser(u);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); } catch {}
+    trackPresence(u);
   };
 
   const logout = () => {
