@@ -1,24 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { NotificationBell } from "@/components/notification-bell";
 import {
+  Bell, useState } from "react";
+import {
+  Bell, useAuth } from "@/lib/auth-context";
+import {
+  Bell, Button } from "@/components/ui/button";
+import {
+  Bell, Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Bell, Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Bell, ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Bell, ThemeToggle } from "@/components/theme-toggle";
+import {
+  Bell, NotificationBell } from "@/components/notification-bell";
+import {
+  Bell,
   Building2, LayoutDashboard, Users, UserCheck, MapPinned,
   ShoppingCart, Wallet, Search, FileBarChart, Settings,
   LogOut, Menu, Database, ChevronLeft
 } from "lucide-react";
-import { ROLE_LABELS } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import {
+  Bell, ROLE_LABELS } from "@/lib/format";
+import {
+  Bell, cn } from "@/lib/utils";
 
 export type TabId =
   | "dashboard" | "search" | "visitors" | "visits" | "customers"
-  | "lots" | "sales" | "payments" | "reports" | "users" | "backup";
+  | "lots" | "sales" | "payments" | "reports" | "users" | "backup" | "notifications";
 
 interface NavItem {
   id: TabId;
@@ -38,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "payments", label: "الدفعات", icon: Wallet, roles: ["ADMIN", "ACCOUNTANT"] },
   { id: "reports", label: "التقارير", icon: FileBarChart },
   { id: "users", label: "إدارة المستخدمين", icon: Settings, roles: ["ADMIN"] },
+  { id: "notifications", label: "المراسلات الداخلية", icon: Bell },
   { id: "backup", label: "النسخ الاحتياطي", icon: Database, roles: ["ADMIN"] },
 ];
 
