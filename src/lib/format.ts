@@ -49,6 +49,12 @@ export const LOT_STATUS_LABELS: Record<string, string> = {
   READY: 'جاهزة',
 };
 
+export const AVAILABILITY_LABELS: Record<string, string> = {
+  AVAILABLE: 'متوفرة',
+  RESERVED: 'محجوزة',
+  SOLD: 'مباعة',
+};
+
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'نقداً',
   CHECK: 'شيك',
