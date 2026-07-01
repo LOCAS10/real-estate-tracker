@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 import {
   Building2, LayoutDashboard, Users, UserCheck, MapPinned,
   ShoppingCart, Wallet, Search, FileBarChart, Settings,
@@ -66,6 +67,7 @@ export function AppShell({
           <div className="text-xs text-sidebar-foreground/60">إدارة شاملة</div>
         </div>
         <ThemeToggle />
+        <NotificationBell />
       </div>
 
       {/* القائمة */}
@@ -154,6 +156,7 @@ export function AppShell({
             <span className="font-bold text-sm">نظام تتبع المشروع</span>
           </div>
           <ThemeToggle />
+          <NotificationBell />
         </header>
 
         {/* Page Content */}
